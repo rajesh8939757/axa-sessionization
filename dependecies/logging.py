@@ -5,6 +5,7 @@ Author: Rajesh Kumar
 This module enabling Log4j logging for PySpark using.
 """
 
+
 class Log4j(object):
     """Wrapper class for Log4j JVM object.
 
@@ -13,13 +14,12 @@ class Log4j(object):
 
     def __init__(self, spark):
         # get spark app details
+        root_class = "com.axa.engineering.spark.challenge"
         conf = spark.sparkContext.getConf()
-        app_id = conf.get('spark.app.id')
         app_name = conf.get('spark.app.name')
 
         log4j = spark._jvm.org.apache.log4j
-        message_prefix = '<' + app_name + ' ' + app_id + '>'
-        self.logger = log4j.LogManager.getLogger(message_prefix)
+        self.logger = log4j.LogManager.getLogger(root_class + "." + app_name)
 
     def error(self, message):
         """Log an error.
@@ -51,3 +51,12 @@ class Log4j(object):
         self.logger.info(message)
         return None
 
+    def debug(self, message):
+        """Log a Debug information.
+
+        :param: Debug message to write to log
+        :return: None
+        """
+
+        self.logger.debug(message)
+        return None

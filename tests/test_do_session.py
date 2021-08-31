@@ -6,27 +6,42 @@ Author: Rajesh Kumar
 This module contains the unit test cases for the sessionization task
 """
 
-import unittest
+from unittest import TestCase
 
-from dependecies.spark import start_spark
-from jobs.do_session import calculate
+from pyspark.sql import SparkSession
+from do_session import calculate
+from jobs.utils import read_data
 
 
-class SessionizationTest(unittest.TestCase):
+class SessionizationTest(TestCase):
     """Test suite for sessionization in do_session.py
     """
+    spark = None
+    test_data_path = 'test_data/'
 
-    def setUp(self):
-        """Start spark, define config and path to test data
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Setup spark session
+         and pre-requisite variables
+        """
+        cls.spark = SparkSession.builder \
+            .master('local[3]') \
+            .appName('SessionizationTest') \
+            .getOrCreate()
+
+    def test_read_data(self):
+        """Test for read the data
+        file
         """
 
-        self.spark, *_ = start_spark()
-        self.test_data_path = 'tests/test_data/'
+        # assemble
+        input_data = read_data(self.spark, self.test_data_path + 'download_logs.csv')
 
-    def tearDown(self):
-        """Stop Spark
-        """
-        self.spark.stop()
+        # act
+        input_data_cnt = input_data.count()
+
+        # assert
+        self.assertEqual(input_data_cnt, 11, "Record count should be 11")
 
     def test_do_session(self):
         """Test data sessionizer.
@@ -37,57 +52,29 @@ class SessionizationTest(unittest.TestCase):
         """
 
         # assemble
-        input_data = (
-            self.spark
-            .read
-            .option('header', 'true')
-            .option('inferSchema', 'true')
-            .csv(self.test_data_path+'download_logs.csv')
-        )
-
-        expected_size = (
-            self.spark
-                .read
-                .option('header', 'true')
-                .option('inferSchema', 'true')
-                .csv(self.test_data_path + 'test_size_agg.csv')
-        )
-
-        expected_cnt = (
-            self.spark
-                .read
-                .option('header', 'true')
-                .option('inferSchema', 'true')
-                .csv(self.test_data_path + 'test_cnt_agg.csv')
-        )
-
-        expected_cols_cnt = [len(expected_size.columns), len(expected_cnt.columns)]
-        expected_rows_cnt = [expected_size.count(), expected_cnt.count()]
-
-        expected_size_value = expected_size.select('cum_size').collect()[0]['cum_size']
-        expected_cnt_value = expected_cnt.select('cnt').collect()[0]['cnt']
-
-        # act
+        input_data = read_data(self.spark, self.test_data_path + 'download_logs.csv')
         test_size, test_cnt = calculate(self.spark, input_data)
 
-        cols = [len(test_size.columns), len(test_cnt.columns)]
-        rows = [test_size.count(), test_cnt.count()]
+        # act
+        test_size_cnt = test_size.count()
+        test_cnt_cnt = test_cnt.count()
 
-        test_size_value = test_size.select('cum_size').collect()[0]['cum_size']
-        test_cnt_value = test_cnt.select('cnt').collect()[0]['cnt']
+        size_dict = dict()
+        for row in test_size.collect():
+            size_dict[row["session_id"]] = row["cum_size"]
+
+        cnt_dict = dict()
+        for row in test_cnt.collect():
+            cnt_dict[row["session_id"]] = row["cnt"]
 
         # assert
-        self.assertEqual(expected_cols_cnt, cols)
-        self.assertEqual(expected_rows_cnt, rows)
+        self.assertEqual(test_size_cnt, 1, "Record count should be 1")
+        self.assertEqual(test_cnt_cnt, 1, "Record count should be 1")
+        self.assertEqual(size_dict["107.23.85.jfd--S0"], 31923.0, "Total size of doc downloaded by (107.23.85.jfd--S0)")
+        self.assertEqual(cnt_dict["107.23.85.jfd--S0"], 11, "Total count of doc downloaded by (107.23.85.jfd--S0)")
 
-        self.assertEqual(expected_size_value, test_size_value)
-        self.assertEqual(expected_cnt_value, test_cnt_value)
-
-        self.assertTrue([col in expected_size.columns
-                         for col in test_size.columns])
-        self.assertTrue([col in expected_cnt.columns
-                         for col in test_cnt.columns])
-
-
-if __name__ == '__main__':
-    unittest.main()
+    @classmethod
+    def tearDownClass(cls) -> None:
+        """Stop Spark
+        """
+        cls.spark.stop()

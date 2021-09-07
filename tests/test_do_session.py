@@ -68,10 +68,10 @@ class SessionizationTest(TestCase):
             cnt_dict[row["session_id"]] = row["cnt"]
 
         # assert
-        self.assertEqual(test_size_cnt, 1, "Record count should be 1")
-        self.assertEqual(test_cnt_cnt, 1, "Record count should be 1")
-        self.assertEqual(size_dict["107.23.85.jfd--S0"], 31923.0, "Total size of doc downloaded by (107.23.85.jfd--S0)")
-        self.assertEqual(cnt_dict["107.23.85.jfd--S0"], 11, "Total count of doc downloaded by (107.23.85.jfd--S0)")
+        self.assertEqual(test_size_cnt, 3, "There are three sessions")
+        self.assertEqual(test_cnt_cnt, 3, "There are three sessions")
+        self.assertEqual(size_dict["107.23.85.jfd--S0"], 11255.0, "Total size of doc downloaded by (107.23.85.jfd--S0)")
+        self.assertEqual(cnt_dict["107.23.85.jfd--S1"], 6, "Total count of doc downloaded by (107.23.85.jfd--S0)")
 
     @classmethod
     def tearDownClass(cls) -> None:

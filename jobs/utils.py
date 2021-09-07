@@ -47,14 +47,22 @@ def calculate(spark, raw_data):
         .withColumn('lag_tm', F.lag('session_tm').over(window_spec)) \
         .select('user_id', 'session_tm', 'lag_tm', 'size')
 
-    ts_diff = lag_data \
-        .withColumn('ts_diff',((F.unix_timestamp('session_tm') - F.unix_timestamp('lag_tm')) / 60))
+    ts_diff_cal = lag_data \
+        .withColumn('ts_diff',((F.unix_timestamp('session_tm') - F.unix_timestamp('lag_tm')) / 60)).na.fill(0)
 
-    ts_diff_cal = ts_diff \
-        .withColumn('ts_diff',  F.when(F.col('ts_diff').isNull(), 0).otherwise(F.col('ts_diff')))
+    # spark 3.0.0 fixed for bug
+    ts_diff_array = (
+        ts_diff_cal
+            .withColumn('flag_value', F.collect_list(F.col('ts_diff'))
+                        .over(window_spec)
+                        .cast('array<int>')))
 
-    sessions = ts_diff_cal \
-        .withColumn('session_new', F.when(F.col('ts_diff') > 30, 1).otherwise(0))
+    reduce_expr = "aggregate(flag_value, 0, (acc, ele) -> IF(acc <= 30, acc + ele, ele))"
+    sessions = ts_diff_array\
+        .withColumn('session', F.expr(reduce_expr))
+
+    sessions = sessions \
+        .withColumn('session_new', F.when(F.col('session') > 30, 1).otherwise(0))
 
     final_sessions = sessions \
         .withColumn('session_id', F.concat(F.col('user_id'), F.lit('--S'), F.sum(F.col('session_new')).over(window_spec))) \
@@ -88,10 +96,12 @@ def calculate(spark, raw_data):
 def write_data(final_data_size, final_data_cnt, output_path):
     (final_data_size
      .write
+     .mode('overwrite')
      .format('csv')
      .save(output_path + 'log_analytics_size'))
 
     (final_data_cnt
      .write
+     .mode('overwrite')
      .format('csv')
      .save(output_path + 'log_analytics_cnt'))

@@ -1,4 +1,8 @@
 """
+utils.py
+Author: Rajesh Kumar
+~~~~~~~~~~~~~~~~~~~~
+
 This python module is the utilies for
 the main functions.
 """
@@ -10,6 +14,7 @@ def read_data(spark, datafile):
     """Load the csv data from local path.
 
     :param: spark: Spark Session object
+    :param: str: Data file location
     :return: Spark Dataframe
     """
 
@@ -24,11 +29,11 @@ def read_data(spark, datafile):
 
 
 def calculate(spark, raw_data):
-    """Calcluate the top 10 session with highest size downloaded files
+    """Calculate the top 10 session with highest size downloaded files
     and highest number of files downloaded
 
     :param spark: SparkSession object
-    :param raw_data: input data datafram of logs
+    :param raw_data: input data dataframe
     :return: Spark Dataframe, Spark Dataframe
     """
 
@@ -94,6 +99,14 @@ def calculate(spark, raw_data):
 
 
 def write_data(final_data_size, final_data_cnt, output_path):
+    """Write the data to local file
+    in csv format
+
+    :param final_data_size: Spark Dataframe
+    :param final_data_cnt: Spark Dataframe
+    :param output_path: Output path location
+    """
+
     (final_data_size
      .write
      .mode('overwrite')
